@@ -5,14 +5,17 @@ namespace App\MessageHandler;
 use Symfony\Component\Messenger\Handler\MessageSubscriberInterface;
 use App\Message\SseRequestConsumerBridge;
 use App\Service\MercurePublisher;
+use App\Service\ContractFilter;
 use Psr\Log\LoggerInterface;
 
 class SseRequestConsumerBridgeHandler implements MessageSubscriberInterface
 {
     private MercurePublisher $publisher;
+    private ContractFilter $contractFilter;
     private LoggerInterface $logger;
-    public function __construct(MercurePublisher $publisher, LoggerInterface $logger) {
+    public function __construct(MercurePublisher $publisher, ContractFilter $contractFilter, LoggerInterface $logger) {
         $this->publisher = $publisher;
+        $this->contractFilter = $contractFilter;
         $this->logger = $logger;
     }
 
@@ -32,10 +35,16 @@ class SseRequestConsumerBridgeHandler implements MessageSubscriberInterface
                 throw new \InvalidArgumentException('Invalid JSON: ' . json_last_error_msg());
             }
 
-            $topic = "test";
-            $this->publisher->publish($topic, $payload);
+            $contracts = $this->contractFilter->extractContracts($payload);
 
-            $this->logger->info('Message published to Mercure', ['topic' => $topic]);
+            if (!empty($contracts)) {
+                $this->publisher->publish($contracts, $payload);
+                $this->logger->info('Published to contracts', ['contracts' => $contracts]);
+            } else {
+                $this->logger->warning('No contracts found in payload', ['payload' => $payload]);
+            }
+
+            $this->logger->info('Message published to Mercure', ['contracts' => $contracts]);
 
         } catch (\Exception $e) {
             $this->logger->error('Handler failed: ' . $e->getMessage());

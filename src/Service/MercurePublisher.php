@@ -9,32 +9,34 @@ use Psr\Log\LoggerInterface;
 class MercurePublisher
 {
     private HubInterface $hub;
-    private ?LoggerInterface $logger;
+    private LoggerInterface $logger;
+    private MercureTopicBuilder $topicBuilder;
 
-    public function __construct(HubInterface $hub, LoggerInterface $logger = null)
+    public function __construct(HubInterface $hub, MercureTopicBuilder $topicBuilder, LoggerInterface $logger)
     {
         $this->hub = $hub;
+        $this->topicBuilder = $topicBuilder;
         $this->logger = $logger;
     }
 
-    public function publish(string $topic, array $payload): void
+    public function publish(string $contractId, array $payload): void
     {
         try {
             $update = new Update(
-                $topic,
+                $topic = $this->topicBuilder->buildTopic($contractId),
                 json_encode($payload)
             );
 
-            $this->logger?->info('Attempting to publish to Mercure', [
+            $this->logger->info('Attempting to publish to Mercure', [
                 'topic' => $topic,
                 'payload' => $payload
             ]);
 
             $this->hub->publish($update);
 
-            $this->logger?->info('Successfully published to Mercure');
+            $this->logger->info('Successfully published to Mercure');
         } catch (\Exception $e) {
-            $this->logger?->error('Failed to publish to Mercure: ' . $e->getMessage());
+            $this->logger->error('Failed to publish to Mercure: ' . $e->getMessage());
             throw $e;
         }
     }
