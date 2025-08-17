@@ -1,0 +1,5 @@
+vdm_version:
+  secret: ~
+  path: /version
+  versions:
+    api: "%env(API_VERSION)%"

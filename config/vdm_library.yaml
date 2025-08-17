@@ -1,0 +1,6 @@
+vdm_library:
+  app_name: '%env(string:VDM_APP_NAME)%'
+  print_msg: '%env(bool:VDM_PRINT_MSG)%'
+  monitoring:
+    type: '%env(VDM_MONITORING_TYPE)%'
+    options: '%env(json:VDM_MONITORING_OPTIONS)%'

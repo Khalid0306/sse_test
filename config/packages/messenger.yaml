@@ -1,0 +1,42 @@
+framework:
+    messenger:
+        serializer:
+            default_serializer: messenger.transport.symfony_serializer
+            symfony_serializer:
+                format: json
+                context:
+                    json_encode_options: !php/const JSON_PRESERVE_ZERO_FRACTION
+
+        transports:
+            sse-request-consumer-bridge:
+                serializer: App\Messenger\ExternalJsonMessageSerializer
+                dsn: "%env(MESSENGER_TRANSPORT_DSN)%"
+                failure_transport: sse-request-consumer-bridge_failed # Point toward the dead letter queue
+                retry_strategy:
+                    max_retries: 0
+                options:
+                    auto_setup: "true"
+                    heartbeat: "60"
+                    read_timeout: "60"
+                    write_timeout: "60"
+                    prefetch_count: "1"
+                    queues:
+                        "%env(SSE_REQUEST_TRANSPORT_DSN_QUEUE)%": ~
+                    exchange:
+                        name: "%env(SSE_MESSENGER_REQUEST_TRANSPORT_DSN_EXCHANGE)%"
+                        type: fanout
+
+            # Dead letter queue
+            sse-request-consumer-bridge_failed:
+                dsn: "%env(MESSENGER_TRANSPORT_DSN)%"
+                options:
+                    auto_setup: "true"
+                    heartbeat: "60"
+                    read_timeout: "60"
+                    write_timeout: "60"
+                    prefetch_count: "1"
+                    queues:
+                        "%env(SSE_REQUEST_FAILED_TRANSPORT_DSN_QUEUE)%": ~
+
+        routing:
+            # Route your messages to the transports
