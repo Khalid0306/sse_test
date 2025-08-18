@@ -39,4 +39,4 @@ framework:
                         "%env(SSE_REQUEST_FAILED_TRANSPORT_DSN_QUEUE)%": ~
 
         routing:
-            # Route your messages to the transports
+            'App\Message\SseRequestConsumerBridge': sse-request-consumer-bridge

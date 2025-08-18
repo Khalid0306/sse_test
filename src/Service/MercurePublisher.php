@@ -5,6 +5,7 @@ namespace App\Service;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Psr\Log\LoggerInterface;
+use App\Exception\MercureException;
 
 class MercurePublisher
 {
@@ -19,18 +20,23 @@ class MercurePublisher
         $this->logger = $logger;
     }
 
+    /**
+     * @throws MercureException
+     */
     public function publish(string $contractId, array $payload): void
     {
-        try {
-            $update = new Update(
-                $topic = $this->topicBuilder->buildTopic($contractId),
-                json_encode($payload)
-            );
+        $this->validatePublishParameters($contractId, $payload);
 
-            $this->logger->info('Attempting to publish to Mercure', [
+        try {
+            $topic = $this->topicBuilder->buildTopic($contractId);
+            $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
+
+            $update = new Update($topic, $jsonPayload);
+
+            $this->logger->info('Publishing to Mercure', [
                 'topic' => $topic,
                 'contractId' => $contractId,
-                'payload' => $payload
+                'payload_size' => strlen($jsonPayload)
             ]);
 
             $this->hub->publish($update);
@@ -39,9 +45,31 @@ class MercurePublisher
                 'contractId' => $contractId,
                 'topic' => $topic
             ]);
+
+        } catch (\JsonException $e) {
+            $error = "JSON encoding failed for contract {$contractId}: " . $e->getMessage();
+            $this->logger->error($error);
+            throw new MercureException($error, 0, $e);
+
         } catch (\Exception $e) {
-            $this->logger->error('Failed to publish to Mercure for contract: ' . $contractId . ' - ' . $e->getMessage());
-            throw $e;
+            $error = "Failed to publish to Mercure for contract {$contractId}: " . $e->getMessage();
+            $this->logger->error($error, [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw new MercureException($error, 0, $e);
         }
+    }
+
+    private function validatePublishParameters(string $contractId, array $payload): void
+    {
+        if (empty(trim($contractId))) {
+            throw new MercureException('Contract ID cannot be empty');
+        }
+
+        if (empty($payload)) {
+            throw new MercureException('Payload cannot be empty');
+        }
+
     }
 }
