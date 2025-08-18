@@ -2,33 +2,32 @@
 
 namespace App\Service;
 
+use Psr\Log\LoggerInterface;
+
 class ContractFilter
 {
-    public function shouldNotify(array $payload, string $contractId): bool
+    private LoggerInterface $logger;
+
+    public function __construct(LoggerInterface $logger) {
+        $this->logger = $logger;
+    }
+    public function extractContracts(array $payload): ?string
     {
         if (!isset($payload['context'])) {
-            return false;
+            $this->logger->warning('No context found in payload.');
+            return null;
         }
 
         foreach ($payload['context'] as $context) {
-            if ($context['type'] === 'CONTRACT' && $context['id'] === $contractId) {
-                return true;
+            if (($context['type'] ?? null) === 'CONTRACT') {
+                $this->logger->info('Contract extracted.', [
+                    'contract_id' => $context['id'] ?? null,
+                ]);
+                return $context['id'] ?? null;
             }
         }
 
-        return false;
-    }
-
-    public function extractContracts(array $payload): array
-    {
-        $contracts = [];
-        if (isset($payload['context'])) {
-            foreach ($payload['context'] as $context) {
-                if ($context['type'] === 'CONTRACT') {
-                    $contracts[] = $context['id'];
-                }
-            }
-        }
-        return $contracts;
+        $this->logger->debug('Context present but no CONTRACT type found.');
+        return null;
     }
 }

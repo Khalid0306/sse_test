@@ -29,14 +29,18 @@ class MercurePublisher
 
             $this->logger->info('Attempting to publish to Mercure', [
                 'topic' => $topic,
+                'contractId' => $contractId,
                 'payload' => $payload
             ]);
 
             $this->hub->publish($update);
 
-            $this->logger->info('Successfully published to Mercure');
+            $this->logger->info('Successfully published to Mercure', [
+                'contractId' => $contractId,
+                'topic' => $topic
+            ]);
         } catch (\Exception $e) {
-            $this->logger->error('Failed to publish to Mercure: ' . $e->getMessage());
+            $this->logger->error('Failed to publish to Mercure for contract: ' . $contractId . ' - ' . $e->getMessage());
             throw $e;
         }
     }

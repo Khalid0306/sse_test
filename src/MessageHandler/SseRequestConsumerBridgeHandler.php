@@ -35,16 +35,12 @@ class SseRequestConsumerBridgeHandler implements MessageSubscriberInterface
                 throw new \InvalidArgumentException('Invalid JSON: ' . json_last_error_msg());
             }
 
-            $contracts = $this->contractFilter->extractContracts($payload);
+            $contract = $this->contractFilter->extractContracts($payload);
 
-            if (!empty($contracts)) {
-                $this->publisher->publish($contracts, $payload);
-                $this->logger->info('Published to contracts', ['contracts' => $contracts]);
-            } else {
-                $this->logger->warning('No contracts found in payload', ['payload' => $payload]);
-            }
+            $this->publisher->publish($contract, $payload);
+            $this->logger->info('Published to contracts', ['contract' => $contract]);
 
-            $this->logger->info('Message published to Mercure', ['contracts' => $contracts]);
+            $this->logger->info('Message published to Mercure', ['contract' => $contract]);
 
         } catch (\Exception $e) {
             $this->logger->error('Handler failed: ' . $e->getMessage());
