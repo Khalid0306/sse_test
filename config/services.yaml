@@ -19,6 +19,10 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
-
+            - 
+    App\Service\MercureJwtProvider:
+        arguments:
+            $mercureSecret: '%env(MERCURE_JWT_SECRET)%'
+            $mercurePublicUrl: '%env(MERCURE_PUBLIC_URL)%'
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
