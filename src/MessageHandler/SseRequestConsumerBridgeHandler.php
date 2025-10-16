@@ -2,22 +2,22 @@
 
 namespace App\MessageHandler;
 
-use Symfony\Component\Messenger\Handler\MessageSubscriberInterface;
+use App\Exception\ContractNotFoundException;
+use App\Exception\InvalidPayloadException;
+use App\Exception\MercureException;
+use App\helpers\ContractFilter;
 use App\Message\SseRequestConsumerBridge;
 use App\Service\MercurePublisher;
-use App\Service\ContractFilter;
-use App\Exception\InvalidPayloadException;
-use App\Exception\ContractNotFoundException;
-use App\Exception\MercureException;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\Handler\MessageSubscriberInterface;
 
 class SseRequestConsumerBridgeHandler implements MessageSubscriberInterface
 {
-    private MercurePublisher $publisher;
+    private MercurePublisher $mercurePublisher;
     private ContractFilter $contractFilter;
     private LoggerInterface $logger;
-    public function __construct(MercurePublisher $publisher, ContractFilter $contractFilter, LoggerInterface $logger) {
-        $this->publisher = $publisher;
+    public function __construct(MercurePublisher $mercurePublisher, ContractFilter $contractFilter, LoggerInterface $logger) {
+        $this->mercurePublisher = $mercurePublisher;
         $this->contractFilter = $contractFilter;
         $this->logger = $logger;
     }
@@ -38,11 +38,12 @@ class SseRequestConsumerBridgeHandler implements MessageSubscriberInterface
                 throw new \InvalidArgumentException('Invalid JSON: ' . json_last_error_msg());
             }
 
-            $contract = $this->contractFilter->extractContracts($payload);
+            $contractId = $this->contractFilter->extractContracts($payload);
+            $ownerApplication = $this->contractFilter->extractOwnerApplication($payload);
 
-            $this->publisher->publish($contract, $payload);
+            $this->mercurePublisher->publish($contractId, $payload, $ownerApplication);
 
-            $this->logger->info('Message published to Mercure', ['contract' => $contract]);
+            return;
 
         }catch (InvalidPayloadException $e) {
             $this->logger->warning('Invalid payload received', [

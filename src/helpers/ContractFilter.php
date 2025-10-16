@@ -1,10 +1,11 @@
 <?php
 
-namespace App\Service;
+namespace App\helpers;
 
-use Psr\Log\LoggerInterface;
 use App\Exception\ContractNotFoundException;
 use App\Exception\InvalidPayloadException;
+use App\Exceptions\OwnerApplicationNotFoundException;
+use Psr\Log\LoggerInterface;
 
 class ContractFilter
 {
@@ -23,12 +24,18 @@ class ContractFilter
         $this->validatePayload($payload);
 
         foreach ($payload['context'] as $context) {
-            if (($context['type'] ?? null) === 'CONTRACT') {
+            $type = strtoupper($context['type'] ?? '');
+
+            if ($type === 'CONTRACT') {
                 if (empty($context['id'])) {
                     throw new ContractNotFoundException('Contract found but ID is empty or missing');
                 }
+
                 $contractId = (string) $context['id'];
-                $this->logger->info('Contract extracted', ['contract_id' => $contractId]);
+                $this->logger->info('Contract extracted: {contract_id}', [
+                    'contract_id' => $contractId,
+                ]);
+
                 return $contractId;
             }
         }
@@ -37,11 +44,38 @@ class ContractFilter
 
     /**
      * @throws InvalidPayloadException
+     * @throws OwnerApplicationNotFoundException
+     */
+    public function extractOwnerApplication(array $payload): string
+    {
+        $this->validatePayload($payload);
+
+        if (empty($payload['ownerApplication'])) {
+            throw new OwnerApplicationNotFoundException('ownerApplication is missing or empty in payload');
+        }
+
+        $ownerApp = (string) $payload['ownerApplication'];
+
+        $this->logger->info('Owner application extracted: {owner_application}', [
+            'owner_application' => $ownerApp,
+        ]);
+
+        return $ownerApp;
+    }
+
+
+
+    /**
+     * @throws InvalidPayloadException
      */
     private function validatePayload(array $payload): void
     {
         if (empty($payload)) {
             throw new InvalidPayloadException('Payload is empty');
+        }
+
+        if (!isset($payload['ownerApplication'])) {
+            throw new InvalidPayloadException('Missing required field: ownerApplication');
         }
 
         if (!isset($payload['context'])) {

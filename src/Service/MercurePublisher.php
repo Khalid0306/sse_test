@@ -2,10 +2,11 @@
 
 namespace App\Service;
 
+use App\Exception\MercureException;
+use App\helpers\MercureTopicBuilder;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
-use Psr\Log\LoggerInterface;
-use App\Exception\MercureException;
 
 class MercurePublisher
 {
@@ -23,28 +24,23 @@ class MercurePublisher
     /**
      * @throws MercureException
      */
-    public function publish(string $contractId, array $payload): void
+    public function publish(string $contractId, array $payload, string $ownerApplication): void
     {
-        $this->validatePublishParameters($contractId, $payload);
 
         try {
-            $topic = $this->topicBuilder->buildTopic($contractId);
+            $topic = $this->topicBuilder->buildTopic($contractId, $ownerApplication);
             $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
             $update = new Update($topic, $jsonPayload);
 
-            $this->logger->info('Publishing to Mercure', [
-                'topic' => $topic,
-                'contractId' => $contractId,
-                'payload_size' => strlen($jsonPayload)
-            ]);
-
             $this->hub->publish($update);
 
-            $this->logger->info('Successfully published to Mercure', [
-                'contractId' => $contractId,
-                'topic' => $topic
-            ]);
+            $this->logger->info(
+                'Successfully published to Mercure (topic: {topic})',
+                [
+                    'topic' => $topic,
+                ]
+            );
 
         } catch (\JsonException $e) {
             $error = "JSON encoding failed for contract {$contractId}: " . $e->getMessage();
@@ -59,17 +55,5 @@ class MercurePublisher
             ]);
             throw new MercureException($error, 0, $e);
         }
-    }
-
-    private function validatePublishParameters(string $contractId, array $payload): void
-    {
-        if (empty(trim($contractId))) {
-            throw new MercureException('Contract ID cannot be empty');
-        }
-
-        if (empty($payload)) {
-            throw new MercureException('Payload cannot be empty');
-        }
-
     }
 }
