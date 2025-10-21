@@ -13,45 +13,58 @@ class MercurePublisher
     private HubInterface $hub;
     private LoggerInterface $logger;
     private MercureTopicBuilder $topicBuilder;
+    private MercureJwtProvider $jwtProvider;
 
-    public function __construct(HubInterface $hub, MercureTopicBuilder $topicBuilder, LoggerInterface $logger)
-    {
+    public function __construct(
+        HubInterface $hub,
+        MercureTopicBuilder $topicBuilder,
+        MercureJwtProvider $jwtProvider,
+        LoggerInterface $logger
+    ) {
         $this->hub = $hub;
         $this->topicBuilder = $topicBuilder;
+        $this->jwtProvider = $jwtProvider;
         $this->logger = $logger;
     }
 
     /**
+     * Publie un message sur un topic Mercure
+     *
      * @throws MercureException
      */
     public function publish(string $contractId, array $payload, string $ownerApplication): void
     {
-
         try {
             $topic = $this->topicBuilder->buildTopic($contractId, $ownerApplication);
+
             $jsonPayload = json_encode($payload, JSON_THROW_ON_ERROR);
 
-            $update = new Update($topic, $jsonPayload);
+            $jwt = $this->jwtProvider->generatePublishToken([$topic]);
+
+            $update = new Update(
+                $topic,
+                $jsonPayload,
+                true,       // private = true (auth obligatoire)
+                null,       // id
+                null,       // type
+                $jwt
+            );
 
             $this->hub->publish($update);
 
-            $this->logger->info(
-                'Successfully published to Mercure (topic: {topic})',
-                [
-                    'topic' => $topic,
-                ]
-            );
-
+            $this->logger->info('Successfully published to Mercure', [
+                'topic' => $topic,
+                'payload' => $payload,
+            ]);
         } catch (\JsonException $e) {
             $error = "JSON encoding failed for contract {$contractId}: " . $e->getMessage();
             $this->logger->error($error);
             throw new MercureException($error, 0, $e);
-
         } catch (\Exception $e) {
             $error = "Failed to publish to Mercure for contract {$contractId}: " . $e->getMessage();
             $this->logger->error($error, [
                 'exception' => get_class($e),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw new MercureException($error, 0, $e);
         }

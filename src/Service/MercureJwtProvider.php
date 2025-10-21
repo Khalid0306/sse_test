@@ -21,56 +21,37 @@ class MercureJwtProvider
      * Génère un token JWT pour l'abonnement aux topics Mercure
      *
      * @param array $topics Liste des topics auxquels s'abonner
-     * @param string|null $contractId ID du contrat
-     * @param string|null $ownerApplication Application propriétaire
      * @return string Le token JWT encodé
      */
-    public function generateSubscribeToken(
-        array $topics = [],
-        ?string $contractId = null,
-        ?string $ownerApplication = null
-    ): string {
+    public function generateSubscribeToken(array $topics): string
+    {
+        if (empty($topics)) {
+            throw new \InvalidArgumentException('The topic list cannot be empty.');
+        }
+
         $configuration = Configuration::forSymmetricSigner(
             new Sha256(),
             InMemory::plainText($this->mercureSecret)
         );
 
         $builder = $configuration->builder();
-
-        // Définir les topics d'abonnement
-        $subscribeClaim = $topics;
-
-        // Si pas de topics spécifiques, permettre l'abonnement basé sur contractId et ownerApplication
-        if (empty($subscribeClaim)) {
-            if ($contractId && $ownerApplication) {
-                // Topic spécifique pour un contrat
-                $subscribeClaim = ["realtime-event/{$ownerApplication}/contract/{$contractId}"];
-            } elseif ($ownerApplication) {
-                // Tous les contrats d'une application
-                $subscribeClaim = ["realtime-event/{$ownerApplication}/contract/*"];
-            } else {
-                // Par défaut
-                $subscribeClaim = ['*'];
-            }
-        }
-
-        // Construire le token
         $now = new \DateTimeImmutable();
+
         $token = $builder
             ->issuedBy($this->mercurePublicUrl)
             ->issuedAt($now)
-            ->expiresAt($now->modify('+1 hour')) // Token valide 1 heure
+            ->expiresAt($now->modify('+2 hour'))
             ->withClaim('mercure', [
-                'subscribe' => $subscribeClaim,
-                'payload' => [] // Pas de payload custom pour la lecture
+                'subscribe' => $topics,
             ])
             ->getToken($configuration->signer(), $configuration->signingKey());
 
         return $token->toString();
     }
 
+
     /**
-     * Génère un token JWT pour publier sur les topics Mercure (backend uniquement)
+     * Génère un token JWT pour publier sur les topics Mercure (côté serveur uniquement)
      *
      * @param array $topics Liste des topics sur lesquels publier
      * @return string Le token JWT encodé
@@ -88,7 +69,7 @@ class MercureJwtProvider
         $token = $builder
             ->issuedBy($this->mercurePublicUrl)
             ->issuedAt($now)
-            ->expiresAt($now->modify('+1 hour'))
+            ->expiresAt($now->modify('+2 hour'))
             ->withClaim('mercure', [
                 'publish' => $topics,
                 'subscribe' => [],
